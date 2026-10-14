@@ -1,0 +1,6 @@
+{% extends "basic.html" %}{% block content %}<main class="container py-4"><h1>Dashboard</h1>
+<p>Income: {{ '%.2f'|format(metrics.income) }} · Expenses: {{ '%.2f'|format(metrics.expenses) }} · Net: {{ '%.2f'|format(metrics.net) }}</p>
+<p>Predicted GPA: {{ gpa.gpa }} / 4.0 · Fitness minutes: {{ total_fitness }} · Life score: {{ life_score }}</p>
+<h2>Goals</h2>{% for goal in goal_progress %}<p>{{ goal.description }} — {{ goal.progress }}%</p>{% else %}<p>No active dated goals.</p>{% endfor %}
+<form method="post" action="{{ url_for('add_goal') }}"><label class="form-label" for="description">Add a goal</label><input class="form-control mb-2" id="description" name="description" required><input class="form-control mb-2" type="date" name="target_date"><button class="btn btn-primary">Add goal</button></form>
+</main>{% endblock %}
