@@ -1,1 +1,0 @@
-{% extends "basic.html" %}{% block content %}<main class="container py-4"><h1>Users</h1><ul>{% for item in users %}<li><a href="{{ url_for('admin_user_detail', user_id=item.id) }}">{{ item.username }}</a> · {{ item.email }}</li>{% else %}<li>No users found.</li>{% endfor %}</ul></main>{% endblock %}
