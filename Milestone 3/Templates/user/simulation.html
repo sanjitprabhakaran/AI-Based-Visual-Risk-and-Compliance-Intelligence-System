@@ -1,0 +1,168 @@
+{% extends "basic.html" %}
+{% block content %}
+<main class="container-fluid simulation-page py-4 px-3 px-lg-4">
+    <div class="simulation-heading d-flex align-items-center justify-content-between mb-3">
+        <h1><i class="fas fa-robot" aria-hidden="true"></i> Future Simulation</h1>
+        <span class="text-muted small">What-if Analysis</span>
+    </div>
+
+    <div class="row g-3">
+        <section class="col-lg-5" aria-label="Run a simulation">
+            <div class="sim-card scenario-card">
+                <h2 class="section-title"><i class="fas fa-cog" aria-hidden="true"></i> Run a Scenario</h2>
+                <form method="post" class="scenario-form">
+                    <label class="form-label" for="scenario">Choose Scenario</label>
+                    <select class="form-select" name="scenario" id="scenario">
+                        <option value="save" {% if result and result.scenario == 'save' %}selected{% endif %}>💰 Save Money</option>
+                        <option value="invest" {% if result and result.scenario == 'invest' %}selected{% endif %}>📈 Invest</option>
+                        <option value="spend" {% if result and result.scenario == 'spend' %}selected{% endif %}>🛍️ Spend More</option>
+                        <option value="study_more" {% if result and result.scenario == 'study_more' %}selected{% endif %}>📚 Study More</option>
+                        <option value="exercise" {% if result and result.scenario == 'exercise' %}selected{% endif %}>🏃 Exercise</option>
+                    </select>
+                    <p class="scenario-hint" id="scenario-hint">Save regularly to build your emergency fund.</p>
+                    <label class="form-label" for="amount" id="amount-label">Monthly Savings (₹)</label>
+                    <div class="input-group amount-input"><span class="input-group-text" id="amount-prefix">₹</span><input class="form-control" id="amount" type="number" min="0.1" step="0.1" name="amount" value="{{ request.form.get('amount', '') }}" required></div>
+                    <p class="scenario-hint" id="amount-hint">Monthly amount to save.</p>
+                    <button class="btn simulate-button" type="submit"><i class="fas fa-play" aria-hidden="true"></i> Simulate</button>
+                </form>
+            </div>
+
+            <div class="sim-card stats-card mt-3">
+                <h2 class="section-title">Your Current Stats</h2>
+                <div class="row text-center g-2">
+                    <div class="col-4"><span class="stat-label">Savings</span><strong>₹{{ '%.1f'|format(current_values.savings) }}</strong></div>
+                    <div class="col-4"><span class="stat-label">GPA</span><strong>{{ '%.2f'|format(current_values.gpa) }}</strong></div>
+                    <div class="col-4"><span class="stat-label">Fitness</span><strong>{{ current_values.fitness }} min</strong></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="col-lg-7" aria-label="Simulation results">
+            {% if result %}
+            <article class="sim-result">
+                <span class="risk-pill risk-{{ result.risk|lower }}">{{ result.risk }} Risk</span>
+                <div class="result-title-icon">{% if result.scenario == 'study_more' %}📚{% elif result.scenario == 'exercise' %}🏃{% elif result.scenario == 'invest' %}📈{% else %}🛍️{% endif %}</div>
+                <h2>{{ result.desc }}</h2>
+                <div class="row g-3 result-details">
+                    <div class="col-md-6"><span><i class="fas fa-chart-bar" aria-hidden="true"></i> Projected Impact</span><strong>{{ result.impact }}</strong></div>
+                    <div class="col-md-6"><span><i class="fas fa-lightbulb" aria-hidden="true"></i> Recommendation</span><strong>{{ result.rec }}</strong></div>
+                </div>
+                <div class="projection-values">
+                    <div><span>Current</span><strong>{% if result.scenario in ['save', 'spend'] %}₹{% endif %}{{ '{:,.2f}'.format(result.current) }}</strong></div>
+                    <div><span>Projected</span><strong>{% if result.scenario in ['save', 'spend', 'invest'] %}₹{% endif %}{{ '{:,.2f}'.format(result.projected) }}{% if result.scenario == 'study_more' %} GPA{% elif result.scenario == 'exercise' %} cal{% endif %}</strong></div>
+                </div>
+                <div class="projection-track"><span style="width: {{ 100 if result.current == 0 else ([((result.projected / result.current)|abs * 100), 100]|min) }}%"></span></div>
+            </article>
+            {% else %}
+            <article class="sim-result result-empty">
+                <div class="result-title-icon">🔮</div><h2>Your next possibility starts here</h2>
+                <p>Choose a scenario to see its projected impact and a recommendation.</p>
+            </article>
+            {% endif %}
+
+            <section class="sim-card history-card mt-3">
+                <div class="history-heading"><h2 class="section-title"><i class="fas fa-history" aria-hidden="true"></i> Simulation History</h2><span class="count-badge">{{ history|length }}</span></div>
+                {% for item in history %}
+                <article class="history-item">
+                    <span class="risk-pill risk-{{ item.result_risk|lower }}">{{ item.result_risk }}</span>
+                    <div class="history-meta"><span>{{ {'save':'💰 Save','invest':'📈 Invest','spend':'🛍️ Spend','study_more':'📚 Study','exercise':'🏃 Exercise'}.get(item.scenario, item.scenario) }}</span><time>{{ item.timestamp.strftime('%d %b, %I:%M %p') }}</time></div>
+                    <strong>{{ item.result_desc }}</strong><p>{{ item.result_impact }}</p>
+                    <small>Amount: {% if item.scenario in ['save', 'invest', 'spend'] %}₹{% endif %}{{ '{:,.1f}'.format(item.amount) }}{% if item.scenario == 'study_more' %} hours{% elif item.scenario == 'exercise' %} min{% endif %}</small>
+                </article>
+                {% else %}<p class="empty-history">Your simulations will appear here after you run a scenario.</p>{% endfor %}
+                {% if history %}<form method="post" action="{{ url_for('clear_simulation_history') }}" class="history-actions"><button class="btn btn-sm btn-outline-secondary" type="submit">Clear history</button></form>{% endif %}
+            </section>
+
+            <section class="sim-card report-card mt-3">
+                <div class="history-heading"><h2 class="section-title"><i class="fas fa-file-alt" aria-hidden="true"></i> Detailed Report</h2><span class="count-badge">{{ history|length }} total</span></div>
+                <div class="row g-2 report-metrics">
+                    <div class="col-6 col-md-3"><strong>{{ history|length }}</strong><span>Scenarios run</span></div>
+                    <div class="col-6 col-md-3"><strong>{{ history|selectattr('result_risk', 'equalto', 'Low')|list|length }}</strong><span>Low risk</span></div>
+                    <div class="col-6 col-md-3"><strong>{{ history|selectattr('result_risk', 'equalto', 'Medium')|list|length }}</strong><span>Medium risk</span></div>
+                    <div class="col-6 col-md-3"><strong>{{ history|selectattr('result_risk', 'equalto', 'High')|list|length }}</strong><span>High risk</span></div>
+                </div>
+            </section>
+        </section>
+    </div>
+</main>
+
+<style>
+    .simulation-page { max-width: 1600px; color: var(--text-primary); }
+    .simulation-heading h1 { margin: 0; font-size: 1.45rem; font-weight: 700; }
+    .simulation-heading h1 i { color: #3987ee; margin-right: .4rem; }
+    .sim-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; padding: 20px; box-shadow: var(--shadow); }
+    .section-title { font-size: 1rem; font-weight: 700; margin: 0 0 18px; }
+    .section-title i { color: #4285e8; margin-right: .35rem; }
+    .scenario-form .form-label { font-size: .88rem; font-weight: 650; margin-bottom: 7px; }
+    .scenario-form .form-select { margin-bottom: 7px; }
+    .scenario-hint { color: var(--text-muted); font-size: .78rem; margin: 0 0 15px; }
+    .amount-input { max-width: 100%; }
+    .amount-input .input-group-text { background: var(--bg-light); color: var(--text-primary); }
+    .simulate-button { width: 100%; border: 0; border-radius: 30px; color: #fff; font-weight: 700; background: var(--accent-gradient); margin-top: 2px; padding: 9px 16px; }
+    .simulate-button:hover { color: #fff; filter: brightness(.94); }
+    .stats-card { padding: 18px 20px; }
+    .stats-card .section-title { margin-bottom: 22px; }
+    .stats-card .stat-label { display: block; color: var(--text-muted); font-size: .76rem; margin-bottom: 3px; }
+    .stats-card strong { display: block; font-size: .97rem; }
+    .sim-result { position: relative; color: #fff; min-height: 270px; padding: 25px 22px 20px; border-radius: 15px; background: linear-gradient(120deg, #617be5 0%, #7749aa 100%); box-shadow: var(--shadow); }
+    .sim-result h2 { font-size: 1.2rem; font-weight: 700; padding-right: 100px; margin: 4px 0 27px; }
+    .result-title-icon { font-size: 1.55rem; line-height: 1.2; }
+    .risk-pill { display: inline-block; font-size: .69rem; line-height: 1.4; border-radius: 18px; padding: 4px 10px; font-weight: 700; }
+    .sim-result > .risk-pill { position: absolute; top: 18px; right: 18px; }
+    .risk-high { color: #fff; background: #f17575; }
+    .risk-medium { color: #fff; background: #e6a23c; }
+    .risk-low { color: #fff; background: #42b983; }
+    .result-details { margin-bottom: 18px; }
+    .result-details span { display: block; opacity: .8; font-size: .76rem; margin-bottom: 3px; }
+    .result-details span i { margin-right: 4px; }
+    .result-details strong { display: block; font-size: .84rem; font-weight: 600; }
+    .projection-values { background: rgba(255,255,255,.95); color: #374151; border-radius: 7px; display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; margin-top: 14px; }
+    .projection-values div { padding: 9px 12px; display: flex; flex-direction: column; min-width: 0; }
+    .projection-values div + div { border-left: 1px solid #e9eaf1; }
+    .projection-values span { color: #788095; font-size: .7rem; }
+    .projection-values strong { font-size: .88rem; overflow-wrap: anywhere; }
+    .projection-track { height: 6px; background: rgba(255,255,255,.45); margin-top: 12px; border-radius: 8px; overflow: hidden; }
+    .projection-track span { display: block; height: 100%; background: #43bd7b; border-radius: inherit; }
+    .result-empty { min-height: 270px; display: flex; flex-direction: column; justify-content: center; }
+    .result-empty h2 { margin: 8px 0; padding: 0; }
+    .result-empty p { margin: 0; opacity: .85; }
+    .history-card, .report-card { padding: 18px 20px; }
+    .history-heading { display: flex; justify-content: space-between; align-items: flex-start; }
+    .history-heading .section-title { margin-bottom: 12px; }
+    .count-badge { font-size: .7rem; color: var(--text-muted); background: var(--bg-light); padding: 3px 7px; border-radius: 7px; }
+    .history-item { position: relative; padding: 10px 65px 10px 2px; border-top: 1px solid var(--border-color); }
+    .history-item > .risk-pill { position: absolute; right: 0; top: 12px; }
+    .history-meta { display: flex; gap: 12px; color: var(--text-muted); font-size: .74rem; margin-bottom: 3px; }
+    .history-item > strong { display: block; font-size: .81rem; }
+    .history-item p { display: inline; font-size: .78rem; color: var(--text-muted); margin: 0; }
+    .history-item small { display: block; font-size: .7rem; color: var(--text-muted); margin-top: 2px; }
+    .empty-history { color: var(--text-muted); font-size: .85rem; padding: 10px 0 2px; margin: 0; }
+    .history-actions { border-top: 1px solid var(--border-color); padding-top: 10px; text-align: right; }
+    .report-metrics > div { display: flex; flex-direction: column; align-items: center; padding-top: 10px; }
+    .report-metrics strong { color: var(--accent); font-size: 1.3rem; }
+    .report-metrics span { color: var(--text-muted); font-size: .72rem; text-align: center; }
+    @media (max-width: 575.98px) { .sim-card { padding: 16px; } .sim-result { padding: 20px 16px; } .history-item { padding-right: 55px; } }
+</style>
+<script>
+    (() => {
+        const scenario = document.getElementById('scenario');
+        const label = document.getElementById('amount-label');
+        const hint = document.getElementById('amount-hint');
+        const description = document.getElementById('scenario-hint');
+        const prefix = document.getElementById('amount-prefix');
+        const copy = {
+            save: ['Monthly Savings (₹)', 'Monthly amount to save.', 'Save regularly to build your emergency fund.', '₹'],
+            invest: ['Monthly Investment (₹)', 'Monthly amount to invest.', 'Explore the potential of regular investing.', '₹'],
+            spend: ['Extra Monthly Spending (₹)', 'Additional amount spent each month.', 'See how extra spending could affect your savings.', '₹'],
+            study_more: ['Extra Study Hours per Week', 'Additional hours to study each week.', 'Build a consistent study routine.', 'h'],
+            exercise: ['Daily Exercise (minutes)', 'Minutes of exercise each day.', 'See the impact of daily exercise.', 'min']
+        };
+        function updateFields() {
+            const fields = copy[scenario.value] || copy.save;
+            label.textContent = fields[0]; hint.textContent = fields[1]; description.textContent = fields[2]; prefix.textContent = fields[3];
+        }
+        scenario.addEventListener('change', updateFields);
+        updateFields();
+    })();
+</script>
+{% endblock %}

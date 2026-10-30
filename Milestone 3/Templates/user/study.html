@@ -1,0 +1,42 @@
+{% extends "basic.html" %}
+{% block extra_css %}<style>
+.study-page{background:#f1f3ff;min-height:calc(100vh - 60px);padding:14px 18px}.study-page h1{font-size:1.25rem;font-weight:750;margin:0}.study-metric{border:0;border-radius:14px;padding:13px 16px;min-height:76px;color:#20233b;box-shadow:0 3px 12px #29355812}.study-metric small{display:block;opacity:.75}.study-metric strong{font-size:1.2rem}.sm-purple{background:linear-gradient(110deg,#a88aff,#7954bd)}.sm-pink{background:linear-gradient(110deg,#f17bd5,#f04f89)}.sm-green{background:linear-gradient(110deg,#39e68c,#20d5b8)}.sm-blue{background:linear-gradient(110deg,#4bb6f5,#08d4e8)}.study-card{background:var(--bg-card);border:1px solid #e8ebf3;border-radius:12px;box-shadow:0 3px 12px #2935580d}.study-card h2{font-size:.9rem;font-weight:700}.study-card .card-body{padding:14px}.study-card canvas{height:125px!important}.study-page .form-label{font-weight:600;font-size:.82rem}.study-page .form-control{border:0;border-bottom:1px solid #e9ebf1;border-radius:0;box-shadow:none!important}.study-page .table{font-size:.8rem}.study-page .table th{font-size:.68rem;color:#7b8191}.study-gpa{font-size:2rem;color:#627eea;font-weight:750}.study-page details summary{list-style:none}.study-page details summary::-webkit-details-marker{display:none}@media(max-width:767px){.study-page{padding:12px 8px}}
+</style>{% endblock %}
+{% block content %}
+<div class="study-page">
+ <div class="d-flex justify-content-between align-items-center mb-2"><h1>📚 Study &amp; Productivity</h1><small class="text-muted">Last updated: {{ datetime.now().strftime('%d %b, %I:%M %p') }}</small></div>
+ <div class="row g-2 mb-3">
+  <div class="col-6 col-xl-3"><div class="study-metric sm-purple"><small>Total Hours</small><strong>{{ total_hours|round(1) }}</strong><small>All time</small></div></div>
+  <div class="col-6 col-xl-3"><div class="study-metric sm-pink"><small>Avg Productivity</small><strong>{{ avg_productivity|round(1) }}%</strong><small>Logged sessions</small></div></div>
+  <div class="col-6 col-xl-3"><div class="study-metric sm-green"><small>Study Streak</small><strong>{{ study_streak }} days</strong><small>Consecutive</small></div></div>
+  <div class="col-6 col-xl-3"><div class="study-metric sm-blue"><small>Predicted GPA</small><strong>{{ gpa.gpa|round(2) }}</strong><small>Out of 4.0</small></div></div>
+ </div>
+ <div class="row g-2">
+  <div class="col-lg-4">
+   <section class="study-card mb-2"><div class="card-body"><h2>🟢 Log Study Session</h2><form method="post">
+    <label class="form-label mt-2" for="study-date">Date</label><input id="study-date" class="form-control mb-2" type="date" name="date" value="{{ datetime.now().strftime('%Y-%m-%d') }}" required>
+    <label class="form-label" for="study-hours">Hours</label><input id="study-hours" class="form-control mb-2" type="number" name="hours" min="0.1" max="24" step="0.1" placeholder="e.g., 2.5" required>
+    <label class="form-label" for="study-subject">Subject</label><input id="study-subject" class="form-control mb-2" name="subject" maxlength="100" placeholder="e.g., Mathematics">
+    <label class="form-label" for="study-productivity">Productivity (0–100)</label><input id="study-productivity" class="form-control mb-3" type="number" name="productivity" min="0" max="100" placeholder="75" required>
+    <button class="btn btn-primary w-100 rounded-pill" type="submit"><i class="fas fa-save me-1"></i> Log Session</button>
+   </form></div></section>
+   <section class="study-card"><div class="card-body"><h2>📈 GPA Prediction</h2><hr><div class="study-gpa">{{ gpa.gpa|round(2) }}</div><div class="text-muted">Estimated GPA / 4.0</div><p class="mt-2 mb-0">{{ gpa.recommendation }}</p></div></section>
+  </div>
+  <div class="col-lg-8">
+   <div class="row g-2 mb-2"><div class="col-md-6"><section class="study-card"><div class="card-body"><h2>🗓 Daily Study Hours</h2><canvas id="studyDaily"></canvas></div></section></div><div class="col-md-6"><section class="study-card"><div class="card-body"><h2>📊 Productivity Trend</h2><canvas id="studyProductivity"></canvas></div></section></div></div>
+   <div class="row g-2"><div class="col-md-5"><section class="study-card"><div class="card-body"><h2>🔥 Hours by Subject</h2>{% if subjects %}<canvas id="studySubjects"></canvas>{% else %}<p class="text-muted small mb-0">Log sessions by subject to see your breakdown.</p>{% endif %}</div></section></div>
+    <div class="col-md-7"><section class="study-card"><div class="card-body"><div class="d-flex justify-content-between"><h2>☰ Recent Logs</h2><span class="badge">{{ logs|length }} entries</span></div><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Date</th><th>Subject</th><th>Hours</th><th>Productivity</th><th>Actions</th></tr></thead><tbody>
+    {% for log in logs %}<tr><td>{{ log.date.strftime('%d-%m') }}</td><td>{{ log.subject or 'General' }}</td><td>{{ log.hours|round(1) }}</td><td>{{ log.productivity_score if log.productivity_score is not none else '—' }}{% if log.productivity_score is not none %}%{% endif %}</td><td class="text-nowrap"><details class="d-inline-block"><summary class="btn btn-sm btn-outline-primary">✎</summary><form class="card card-body position-absolute end-0 p-3" style="z-index:3;width:260px" method="post" action="{{ url_for('edit_study_log') }}"><input type="hidden" name="id" value="{{ log.id }}"><input class="form-control mb-2" type="date" name="date" value="{{ log.date.strftime('%Y-%m-%d') }}" required><input class="form-control mb-2" name="subject" value="{{ log.subject or '' }}" maxlength="100" placeholder="Subject"><input class="form-control mb-2" type="number" name="hours" value="{{ log.hours }}" min="0.1" max="24" step="0.1" required><input class="form-control mb-2" type="number" name="productivity" value="{{ log.productivity_score or 0 }}" min="0" max="100" required><button class="btn btn-primary btn-sm">Save changes</button></form></details> <form class="d-inline" method="post" action="{{ url_for('delete_study_log', id=log.id) }}" onsubmit="return confirm('Delete this study session?')"><button class="btn btn-sm btn-outline-danger" aria-label="Delete">▢</button></form></td></tr>{% else %}<tr><td colspan="5" class="text-muted text-center py-3">No study sessions yet.</td></tr>{% endfor %}
+    </tbody></table></div></div></section></div>
+   </div>
+  </div>
+ </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="https://cdn.jsdelivr.net/npm/chart.js"></script><script>
+const chartLabels={{ study_dates|tojson }}, chartHours={{ study_hours|tojson }}, prodLabels={{ prod_dates|tojson }}, prodValues={{ prod_avg|tojson }};
+const common={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}};
+new Chart(document.getElementById('studyDaily'),{type:'line',data:{labels:chartLabels,datasets:[{data:chartHours,borderColor:'#6280ed',backgroundColor:'#6280ed22',fill:true,tension:.35}]},options:common});
+new Chart(document.getElementById('studyProductivity'),{type:'line',data:{labels:prodLabels,datasets:[{data:prodValues,borderColor:'#28b89d',backgroundColor:'#28b89d22',fill:true,tension:.35}]},options:{...common,scales:{y:{beginAtZero:true,max:100}}}});
+{% if subjects %}new Chart(document.getElementById('studySubjects'),{type:'doughnut',data:{labels:{{ subjects|tojson }},datasets:[{data:{{ subject_hours|tojson }},backgroundColor:['#6280ed','#f16aa3','#39ce9b','#31bfe3','#ffa94d','#a879de']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}});{% endif %}
+</script>{% endblock %}
